@@ -71,6 +71,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Subset of stages to run, in order. Default: all.",
     )
     parser.add_argument(
+        "--tables",
+        nargs="+",
+        metavar="TABLE",
+        help="Scope the run to these source tables, e.g. --tables Sales.Customer. "
+             "Accepts the qualified name, the bare name or the landing dataset. "
+             "Default: the whole catalog. Useful on a slow local model, where "
+             "each additional table adds two pipeline modules and two test "
+             "suites to generate.",
+    )
+    parser.add_argument(
         "--run-id",
         help="Override the generated run id (default: the run date and time).",
     )
@@ -176,7 +186,7 @@ def main(argv=None) -> int:
         log_run_end("failed", reason=str(exc))
         return 2
 
-    orchestrator = Orchestrator(llm, run_id=context["run_id"])
+    orchestrator = Orchestrator(llm, run_id=context["run_id"], tables=args.tables)
 
     try:
         manifest = orchestrator.run_pipeline(requirement, stages=stages)

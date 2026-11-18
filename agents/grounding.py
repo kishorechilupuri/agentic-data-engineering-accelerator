@@ -18,13 +18,24 @@ from logger_setup import get_logger
 logger = get_logger("grounding")
 
 
-def catalog_brief(include_columns: bool = True, max_columns: int = 12) -> str:
-    """A compact, factual listing of the source system for prompt injection."""
+def catalog_brief(
+    include_columns: bool = True, max_columns: int = 12, tables=None
+) -> str:
+    """A compact, factual listing of the source system for prompt injection.
+
+    `tables` restricts the listing to a subset (any accepted spelling), which
+    is how a scoped run keeps the model from reaching for tables that are out
+    of scope.
+    """
     try:
         catalog = tool_module._load_catalog()
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Could not load the source catalog: %s", exc)
         return "(source catalog unavailable)"
+
+    allowed = None
+    if tables:
+        allowed = set(validate_table_names(tables)[0])
 
     lines = [
         f"Source system: {catalog.get('system')} "
@@ -36,6 +47,8 @@ def catalog_brief(include_columns: bool = True, max_columns: int = 12) -> str:
     ]
 
     for table in catalog.get("tables", []):
+        if allowed is not None and table["table_name"] not in allowed:
+            continue
         lines.append(
             f"- {table['table_name']}  (landing dataset: "
             f"{table.get('landing_dataset')}, ~{table.get('row_estimate')} rows)"

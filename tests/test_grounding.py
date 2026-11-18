@@ -40,6 +40,18 @@ def test_catalog_brief_can_omit_columns():
     assert "columns:" not in catalog_brief(include_columns=False)
 
 
+def test_catalog_brief_can_be_scoped_to_a_subset():
+    """A scoped run must not show the model tables it may not use."""
+    brief = catalog_brief(tables=["Sales.Customer"])
+    assert "Sales.Customer" in brief
+    assert "SalesOrderHeader" not in brief
+    assert "SalesOrderDetail" not in brief
+
+
+def test_catalog_brief_scope_accepts_any_spelling():
+    assert "Sales.SalesOrderHeader" in catalog_brief(tables=["sales_order_header"])
+
+
 def test_schema_brief_gives_full_column_detail():
     brief = schema_brief(["Sales.Customer"])
     assert "TABLE Sales.Customer" in brief
@@ -186,6 +198,76 @@ def test_mapping_agent_is_given_schemas_and_landing_profiles(run_dir, stub_llm, 
     assert "TABLE Sales.Customer" in table_request
     assert "DATASET 'customer'" in table_request
     assert "dea_accelerator.silver.customer" in captured[-1]
+
+
+def test_requirement_agent_enforces_a_scoped_run(run_dir, stub_llm, monkeypatch):
+    """Real but out-of-scope tables are dropped, so the run stays bounded."""
+    import json
+
+    from agents import RequirementRefinerAgent
+
+    everything = json.dumps({
+        "summary": "Build it.",
+        "source_tables": ["Sales.Customer", "Sales.SalesOrderHeader",
+                          "Sales.SalesOrderDetail"],
+        "functional_requirements": [
+            {"id": "FR-001", "statement": "do it", "acceptance_criteria": ["x"]}
+        ],
+    })
+    monkeypatch.setattr(stub_llm, "chat", lambda *a, **k: (everything, _NoCalls()))
+
+    result = RequirementRefinerAgent(stub_llm, run_dir).run(
+        requirement="x", allowed_tables=["Sales.Customer"]
+    )
+
+    assert result.output["source_tables"] == ["Sales.Customer"]
+    assert any("outside the requested scope" in note for note in result.notes)
+
+
+def test_scoped_run_shows_the_model_only_the_tables_in_scope(run_dir, stub_llm, monkeypatch):
+    from agents import RequirementRefinerAgent
+
+    captured = {}
+
+    def capture(messages, **kwargs):
+        captured["user"] = messages[0]["content"]
+        return '{"summary": "s", "functional_requirements": [{"statement": "x"}]}', _NoCalls()
+
+    monkeypatch.setattr(stub_llm, "chat", capture)
+    RequirementRefinerAgent(stub_llm, run_dir).run(
+        requirement="x", allowed_tables=["Sales.Customer"]
+    )
+
+    assert "Sales.Customer" in captured["user"]
+    assert "SalesOrderDetail" not in captured["user"]
+
+
+def test_orchestrator_passes_its_table_scope_to_the_requirement_agent(tmp_path):
+    from agents import Orchestrator
+    from llm_client import LLMClient
+
+    orchestrator = Orchestrator(
+        LLMClient(provider="stub"), run_id="scoped",
+        run_dir=tmp_path / "scoped", tables=["Sales.Customer"],
+    )
+    result = orchestrator.run_pipeline("x", stages=["requirements"])
+
+    assert result["table_scope"] == ["Sales.Customer"]
+    spec_tables = orchestrator.agents["requirements"].run(
+        requirement="x", allowed_tables=orchestrator.table_scope
+    ).output["source_tables"]
+    assert spec_tables == ["Sales.Customer"]
+
+
+def test_an_unscoped_run_still_sees_the_whole_catalog(tmp_path):
+    from agents import Orchestrator
+    from llm_client import LLMClient
+
+    orchestrator = Orchestrator(
+        LLMClient(provider="stub"), run_id="unscoped", run_dir=tmp_path / "unscoped"
+    )
+    assert orchestrator.table_scope is None
+    assert "SalesOrderDetail" in catalog_brief()
 
 
 class _NoCalls:

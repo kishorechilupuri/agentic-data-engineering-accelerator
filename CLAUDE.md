@@ -25,6 +25,7 @@ python main.py --describe             # agents, tools, prompts, model routing
 python main.py -r "<requirement>"     # full run against llama3.1:8b
 python main.py -r "<req>" --provider stub          # offline, deterministic
 python main.py -r "<req>" --stages requirements mapping
+python main.py -r "<req>" --tables Sales.Customer  # bound a slow local run
 ```
 
 Run everything from the project root. `pytest.ini` sets `pythonpath = .`, and

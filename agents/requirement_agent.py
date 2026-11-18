@@ -33,16 +33,20 @@ class RequirementRefinerAgent(BaseAgent):
         "batch_tool",
     )
 
-    def run(self, requirement: str) -> StageResult:
+    def run(self, requirement: str, allowed_tables=None) -> StageResult:
+        """Refine `requirement`, optionally scoped to `allowed_tables`."""
         self.logger.info("Refining requirement: %s", requirement[:120])
+        if allowed_tables:
+            self.logger.info("Run is scoped to source tables: %s", allowed_tables)
 
         system = self.build_system(requirement=requirement)
         # Inject the catalog rather than trusting an 8B model to go and fetch
-        # it: an ungrounded model invents table names that look right.
+        # it: an ungrounded model invents table names that look right. A
+        # scoped run sees only the tables in scope.
         user = (
             "SOURCE CATALOG (authoritative -- these are the only tables that "
             "exist):\n\n"
-            f"{catalog_brief()}\n\n"
+            f"{catalog_brief(tables=allowed_tables)}\n\n"
             "Using only the tables above, produce the requirement "
             "specification JSON described in your instructions. Reply with the "
             "JSON object only."
@@ -81,9 +85,27 @@ class RequirementRefinerAgent(BaseAgent):
                 "catalog validation."
             )
             status = STATUS_DEGRADED
-        # If nothing it named was real, fall back to the whole catalog rather
-        # than handing the mapping agent an empty source list.
-        spec["source_tables"] = recognised or _all_catalog_tables()
+        # A scoped run is a hard boundary: anything outside it is dropped even
+        # if it is a real table, so the run stays the size the operator asked for.
+        if allowed_tables:
+            in_scope = set(validate_table_names(allowed_tables)[0])
+            out_of_scope = [name for name in recognised if name not in in_scope]
+            if out_of_scope:
+                self.logger.info(
+                    "Dropping out-of-scope source tables: %s", out_of_scope
+                )
+                notes.append(
+                    f"Source tables {out_of_scope} are real but outside the "
+                    "requested scope; they were dropped."
+                )
+            recognised = [name for name in recognised if name in in_scope]
+            fallback_tables = sorted(in_scope)
+        else:
+            fallback_tables = _all_catalog_tables()
+
+        # If nothing usable survived, fall back rather than handing the mapping
+        # agent an empty source list.
+        spec["source_tables"] = recognised or fallback_tables
 
         path = self.write("requirements/requirements.json", spec)
 

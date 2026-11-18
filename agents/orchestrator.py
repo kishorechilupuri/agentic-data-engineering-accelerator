@@ -46,9 +46,11 @@ class Orchestrator(BaseAgent):
     description = "Runs the end-to-end data engineering SDLC."
     tool_names = ("get_current_datetime",)
 
-    def __init__(self, llm, run_id: str, run_dir=None):
+    def __init__(self, llm, run_id: str, run_dir=None, tables=None):
         super().__init__(llm, run_dir=run_dir)
         self.run_id = run_id
+        # Optional hard scope: run the SDLC for these source tables only.
+        self.table_scope = list(tables) if tables else None
         self.run_dir = tool_module.set_run_directory(
             run_dir or (config.OUTPUT_DIR / f"run_{run_id}")
         )
@@ -73,6 +75,7 @@ class Orchestrator(BaseAgent):
         self.logger.info("PIPELINE START | run_id=%s", self.run_id)
         self.logger.info("Requirement: %s", requirement)
         self.logger.info("Stages: %s", ", ".join(stages))
+        self.logger.info("Table scope: %s", self.table_scope or "entire catalog")
         self.logger.info("Run folder: %s", self.run_dir)
         self.logger.info("-" * 88)
         log_event("pipeline_start", run_id=self.run_id, stages=list(stages))
@@ -158,7 +161,9 @@ class Orchestrator(BaseAgent):
         agent = self.agents[stage]
 
         if stage == "requirements":
-            return agent.run(requirement=requirement)
+            return agent.run(
+                requirement=requirement, allowed_tables=self.table_scope
+            )
         if stage == "mapping":
             return agent.run(requirements=requirements or {})
         if stage == "codegen":
@@ -226,6 +231,7 @@ class Orchestrator(BaseAgent):
             "run_date": started.strftime("%Y-%m-%d"),
             "run_time": started.strftime("%H:%M:%S"),
             "requirement": requirement,
+            "table_scope": self.table_scope,
             "provider": self.llm.provider,
             # Keyed by stage name, so the manifest records which model served
             # which stage of this particular run.

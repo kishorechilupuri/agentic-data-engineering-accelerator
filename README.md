@@ -302,6 +302,10 @@ python main.py -f my_requirement.txt
 # A subset of stages
 python main.py -r "..." --stages requirements mapping
 
+# Scope the run to one source table — each extra table adds two pipeline
+# modules and two test suites, which matters a lot on a local 8B model
+python main.py -r "..." --tables Sales.Customer
+
 # Offline and deterministic — no model server needed
 python main.py -r "..." --provider stub
 
@@ -333,6 +337,7 @@ logs/run_<id>.events.jsonl   one JSON object per LLM call, tool call and stage
 | `--provider` | `ollama` (default), `stub`, `anthropic` |
 | `--host` | Ollama endpoint, default `http://localhost:11434` |
 | `--stages` | Subset of `requirements mapping codegen data_quality tests review` |
+| `--tables` | Scope the run to these source tables. Accepts the qualified name, bare name or landing dataset. Default: the whole catalog |
 | `--run-id` | Override the generated run id (default: run date and time) |
 | `--quiet` | File logging only |
 | `--describe` | Print the capability surface and exit |
@@ -356,10 +361,13 @@ logs/run_<id>.events.jsonl   one JSON object per LLM call, tool call and stage
 
 ## 9. Limitations
 
-1. **Local 8B inference is slow.** On CPU, a single `deep`-tier call takes
-   minutes, so a full run is measured in tens of minutes to hours. The work is
-   correct but not interactive. The tier routing exists precisely so this can
-   be moved to hosted models without touching the agents.
+1. **Local 8B inference is slow.** Measured on CPU, a `deep`-tier call takes
+   around 12 minutes and a `balanced`-tier call around 4. Cost scales with the
+   number of source tables: each one adds two mapping objects, two pipeline
+   modules and two test suites, so the whole three-table catalog is a
+   multi-hour run while `--tables Sales.Customer` is well under an hour. Use
+   `--tables` to bound a local run. The tier routing exists precisely so this
+   workload can move to hosted models without touching the agents.
 2. **8B output quality is the binding constraint.** It hallucinated table
    names on the very first run. `agents/grounding.py` and the fallbacks in
    `agents/fallbacks.py` exist because of that, and the `degraded` status is a
