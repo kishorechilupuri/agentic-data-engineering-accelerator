@@ -1,0 +1,13 @@
+CustomerID,FirstName,LastName,Email,Phone,City,StateProvince,CountryCode,CreatedDate,ModifiedDate
+1001,Asha,Menon,asha.menon@example.com,+91-80-5550-1001,Bengaluru,Karnataka,IN,2023-04-11 09:14:00,2026-01-15 09:30:00
+1002,Daniel,Okafor,daniel.okafor@example.com,+44-20-5550-1002,Manchester,Greater Manchester,GB,2023-05-02 11:40:00,2026-02-02 14:05:00
+1003,Mei,Tanaka,mei.tanaka@example.com,+81-3-5550-1003,Yokohama,Kanagawa,JP,2023-06-19 08:05:00,2026-01-28 07:45:00
+1004,Priya,Raghavan, ,+91-22-5550-1004,Mumbai,Maharashtra,IN,2023-07-30 16:22:00,2026-03-01 10:10:00
+1005,Lukas,Berger,lukas.berger@example.com,+49-30-5550-1005,Berlin,Berlin,DE,2023-08-14 13:00:00,2026-02-19 18:20:00
+1006,Fatima,Al-Rashid,fatima.alrashid@example.com,+971-4-5550-1006,Dubai,Dubai,AE,2023-09-09 10:55:00,2026-03-05 09:00:00
+1007,Carlos,Mendoza,carlos.mendoza@example.com,+52-55-5550-1007,Guadalajara,Jalisco,MX,2023-10-21 15:35:00,2026-01-09 12:15:00
+1008,Nina,Kowalski,nina-kowalski-example-com,+48-22-5550-1008,Krakow,Lesser Poland,PL,2023-11-03 09:48:00,2026-02-25 16:40:00
+1009,Thabo,Nkosi,thabo.nkosi@example.com,+27-11-5550-1009,Johannesburg,Gauteng,ZA,2024-01-17 08:30:00,2026-03-10 11:25:00
+1010,Elena,Rossi,elena.rossi@example.com,+39-06-5550-1010,Rome,Lazio,,2024-02-28 14:12:00,2026-02-07 08:55:00
+1001,Asha,Menon,asha.menon@example.com,+91-80-5550-1001,Bengaluru,Karnataka,IN,2023-04-11 09:14:00,2026-03-12 17:05:00
+1011,Omar,Haddad,omar.haddad@example.com,+961-1-5550-1011,Beirut,Beirut,LB,2024-03-15 10:05:00,2026-01-22 13:35:00

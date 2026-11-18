@@ -1,0 +1,13 @@
+# Agentic Data Engineering Accelerator -- runtime dependencies
+#
+# The accelerator runs against a LOCAL model served by Ollama, so there is no
+# cloud SDK and no API key. Everything else it needs is in the standard
+# library (csv, json, ast, subprocess, logging, dataclasses).
+
+ollama>=0.3.0          # client for http://localhost:11434
+pytest>=8.0            # runs both this suite and the generated test suites
+
+# Not required by the accelerator itself. The GENERATED pipeline code targets
+# Databricks and expects these on the cluster, not on your laptop:
+#   pyspark>=3.5
+#   delta-spark>=3.0

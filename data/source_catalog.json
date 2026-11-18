@@ -1,0 +1,84 @@
+{
+  "system": "sql_server",
+  "server": "sqlsrv-sales.internal.example",
+  "database": "SalesDW",
+  "extracted_by": "Azure Data Factory",
+  "landing_zone": "ADLS Gen2 container 'landing'",
+  "notes": "Synthetic catalog used by the accelerator. No real data.",
+  "tables": [
+    {
+      "system": "sql_server",
+      "table_name": "Sales.Customer",
+      "landing_dataset": "customer",
+      "description": "One row per customer account in the sales system.",
+      "business_key": ["CustomerID"],
+      "primary_key": ["CustomerID"],
+      "change_tracking_column": "ModifiedDate",
+      "row_estimate": 19820,
+      "adf_pipeline": "pl_copy_sales_customer",
+      "landing_path": "abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/",
+      "columns": [
+        {"name": "CustomerID", "sql_type": "int", "nullable": false, "description": "Surrogate key of the customer."},
+        {"name": "FirstName", "sql_type": "nvarchar(50)", "nullable": false, "description": "Given name."},
+        {"name": "LastName", "sql_type": "nvarchar(50)", "nullable": false, "description": "Family name."},
+        {"name": "Email", "sql_type": "nvarchar(255)", "nullable": true, "description": "Primary contact email."},
+        {"name": "Phone", "sql_type": "nvarchar(25)", "nullable": true, "description": "Primary contact phone."},
+        {"name": "City", "sql_type": "nvarchar(60)", "nullable": true, "description": "Billing city."},
+        {"name": "StateProvince", "sql_type": "nvarchar(60)", "nullable": true, "description": "Billing state or province."},
+        {"name": "CountryCode", "sql_type": "nchar(2)", "nullable": true, "description": "ISO 3166-1 alpha-2 country code."},
+        {"name": "CreatedDate", "sql_type": "datetime2", "nullable": false, "description": "When the account was opened."},
+        {"name": "ModifiedDate", "sql_type": "datetime2", "nullable": false, "description": "Change tracking column."}
+      ]
+    },
+    {
+      "system": "sql_server",
+      "table_name": "Sales.SalesOrderHeader",
+      "landing_dataset": "sales_order_header",
+      "description": "One row per sales order placed by a customer.",
+      "business_key": ["SalesOrderID"],
+      "primary_key": ["SalesOrderID"],
+      "foreign_keys": [
+        {"column": "CustomerID", "references": "Sales.Customer.CustomerID"}
+      ],
+      "change_tracking_column": "ModifiedDate",
+      "row_estimate": 143460,
+      "adf_pipeline": "pl_copy_sales_order_header",
+      "landing_path": "abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/salesorderheader/",
+      "columns": [
+        {"name": "SalesOrderID", "sql_type": "int", "nullable": false, "description": "Surrogate key of the order."},
+        {"name": "CustomerID", "sql_type": "int", "nullable": false, "description": "Customer who placed the order."},
+        {"name": "OrderDate", "sql_type": "date", "nullable": false, "description": "Date the order was placed."},
+        {"name": "ShipDate", "sql_type": "date", "nullable": true, "description": "Date the order shipped; null while open."},
+        {"name": "OrderStatus", "sql_type": "nvarchar(20)", "nullable": false, "description": "One of Open, Shipped, Cancelled, Returned."},
+        {"name": "SubTotal", "sql_type": "decimal(18,2)", "nullable": false, "description": "Order value before tax and freight."},
+        {"name": "Freight", "sql_type": "decimal(18,2)", "nullable": true, "description": "Shipping cost."},
+        {"name": "TotalDue", "sql_type": "decimal(18,2)", "nullable": false, "description": "Total payable including tax and freight."},
+        {"name": "ModifiedDate", "sql_type": "datetime2", "nullable": false, "description": "Change tracking column."}
+      ]
+    },
+    {
+      "system": "sql_server",
+      "table_name": "Sales.SalesOrderDetail",
+      "landing_dataset": "sales_order_detail",
+      "description": "One row per line item on a sales order.",
+      "business_key": ["SalesOrderDetailID"],
+      "primary_key": ["SalesOrderDetailID"],
+      "foreign_keys": [
+        {"column": "SalesOrderID", "references": "Sales.SalesOrderHeader.SalesOrderID"}
+      ],
+      "change_tracking_column": "ModifiedDate",
+      "row_estimate": 1210580,
+      "adf_pipeline": "pl_copy_sales_order_detail",
+      "landing_path": "abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/salesorderdetail/",
+      "columns": [
+        {"name": "SalesOrderDetailID", "sql_type": "int", "nullable": false, "description": "Surrogate key of the order line."},
+        {"name": "SalesOrderID", "sql_type": "int", "nullable": false, "description": "Order this line belongs to."},
+        {"name": "ProductSKU", "sql_type": "nvarchar(25)", "nullable": false, "description": "Stock keeping unit."},
+        {"name": "OrderQty", "sql_type": "int", "nullable": false, "description": "Quantity ordered."},
+        {"name": "UnitPrice", "sql_type": "decimal(18,2)", "nullable": false, "description": "Price per unit at order time."},
+        {"name": "LineTotal", "sql_type": "decimal(18,2)", "nullable": false, "description": "OrderQty * UnitPrice less discount."},
+        {"name": "ModifiedDate", "sql_type": "datetime2", "nullable": false, "description": "Change tracking column."}
+      ]
+    }
+  ]
+}

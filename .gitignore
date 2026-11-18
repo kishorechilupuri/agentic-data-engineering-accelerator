@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Accelerator run output
+# Logs and run folders are regenerated on every execution. EVIDENCE.md keeps
+# the committed record of a run, so these do not belong in version control.
+logs/
+output/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Never commit credentials. The local runtime needs none; if you wire the
+# Anthropic provider, keep its key out of the repository.
+.env
+*.key
+secrets.json

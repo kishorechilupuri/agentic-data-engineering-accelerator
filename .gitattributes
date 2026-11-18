@@ -1,0 +1,12 @@
+# Normalise line endings so the repository stays consistent across Windows,
+# Linux and CI. Text files are stored with LF in git and checked out with the
+# platform's native ending.
+* text=auto
+
+# Always LF in the working tree for files that are read by tools which care.
+*.py   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.csv  text eol=lf
+*.ini  text eol=lf
+*.txt  text eol=lf
