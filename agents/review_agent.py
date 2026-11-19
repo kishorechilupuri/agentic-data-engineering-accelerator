@@ -42,7 +42,11 @@ class CodeReviewAgent(BaseAgent):
             if not str(path).endswith(".py"):
                 continue
             try:
-                validations[path] = tool_module.validate_python_code(artifact_path=path)
+                layer = _layer_of(path)
+                validations[path] = tool_module.validate_python_code(
+                    artifact_path=path,
+                    layer=layer if layer in ("L1", "L2", "L3") else None,
+                )
             except FileNotFoundError as exc:
                 self.logger.warning("Could not read %s for review: %s", path, exc)
 
@@ -69,6 +73,11 @@ class CodeReviewAgent(BaseAgent):
             status = STATUS_DEGRADED
         else:
             review = self._normalise(review)
+
+        # The model tends to echo the absolute path it read from. Keep the
+        # artifact portable (and free of local usernames) by making it relative.
+        for finding in review["findings"]:
+            finding["file"] = self._relative(finding.get("file"))
 
         static_findings = _static_findings(validations, start=len(review["findings"]))
         if static_findings:
@@ -107,6 +116,14 @@ class CodeReviewAgent(BaseAgent):
             turns=turns,
             tool_calls=calls,
         )
+
+    def _relative(self, path):
+        """Express `path` relative to the run folder when it lies inside it."""
+        if not path or not self.run_dir:
+            return path
+        normalised = str(path).replace("\\", "/")
+        root = str(self.run_dir).replace("\\", "/").rstrip("/") + "/"
+        return normalised[len(root):] if normalised.startswith(root) else path
 
     @staticmethod
     def _usable(review) -> bool:

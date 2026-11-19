@@ -1,7 +1,8 @@
 """Stage 3 -- Databricks Pipeline Code Generation Agent.
 
 Generates one PySpark module per mapping object (L1, L2, L3), validates each
-one with the AST-based `validate_python_code` tool, gives the model one
+one with the `validate_python_code` gate (AST parse, Spark-semantics lint and
+the layer's load-strategy contract), gives the model one
 chance to repair a broken module, and falls back to a deterministic template
 if the repair also fails.
 
@@ -55,7 +56,7 @@ class PipelineCodeGenAgent(BaseAgent):
             degraded = degraded or fell_back
 
             self.write(relative_path, code)
-            validation = tool_module.validate_python_code(code=code)
+            validation = _validate(code, item, layer)
             validations[relative_path] = validation
             artifacts.append(relative_path)
 
@@ -113,7 +114,7 @@ class PipelineCodeGenAgent(BaseAgent):
         code = extract_python(text)
 
         if code:
-            validation = tool_module.validate_python_code(code=code)
+            validation = _validate(code, item, layer)
             if validation["valid"]:
                 return code, turns, calls, False, None
 
@@ -141,7 +142,7 @@ class PipelineCodeGenAgent(BaseAgent):
                 turns += 1
                 repaired = extract_python(repair_text)
                 if repaired:
-                    validation = tool_module.validate_python_code(code=repaired)
+                    validation = _validate(repaired, item, layer)
                     if validation["valid"]:
                         return repaired, turns, calls, False, (
                             f"{layer} module needed one repair round before it parsed."
@@ -154,6 +155,22 @@ class PipelineCodeGenAgent(BaseAgent):
         )
         self.logger.warning(note)
         return fallback_pipeline_code(layer, item), turns, calls, True, note
+
+
+def _validate(code: str, item: dict, layer: str) -> dict:
+    """Validate against the layer contract and the mapping's declared columns.
+
+    `ast.parse` alone passed three modules in the first real run that could
+    not execute, so the gate also checks Spark semantics and load strategy.
+    """
+    return tool_module.validate_python_code(
+        code=code,
+        layer=layer,
+        mapping_columns=[
+            column.get("target_column") for column in item.get("columns", [])
+            if column.get("target_column")
+        ],
+    )
 
 
 def _module_name(item: dict) -> str:

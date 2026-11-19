@@ -26,3 +26,6 @@ Thumbs.db
 .env
 *.key
 secrets.json
+
+# Claude Code local state
+.claude/

@@ -19,6 +19,7 @@ Schemas follow the Ollama / OpenAI function-calling shape:
 import ast
 import csv
 import json
+import os
 import re
 import subprocess
 import sys
@@ -29,6 +30,24 @@ import config
 from logger_setup import get_logger, log_event
 
 logger = get_logger("tools")
+
+# A backslash that does not start a valid JSON escape sequence.
+_BAD_JSON_ESCAPE = re.compile(r'\\(?!["\\/bfnrtu])')
+
+
+def _loads_tolerant(text: str):
+    """`json.loads` that survives the escapes an 8B model gets wrong.
+
+    Models routinely put a regex such as `^\\S+@\\S+$` inside a JSON string and
+    write the backslash once, which strict JSON rejects. The first real run
+    lost every data-quality rule to exactly this (`Invalid \\escape`). On a
+    parse failure we double any backslash that is not already a valid escape
+    and try once more; a genuinely malformed document still raises.
+    """
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return json.loads(_BAD_JSON_ESCAPE.sub(r"\\\\", text))
 
 # --------------------------------------------------------------------------
 # Run context: where write_artifact / read_artifact are rooted
@@ -244,12 +263,184 @@ _FORBIDDEN_PATTERNS = (
 # Cheap heuristics for "does this look like a real Spark job".
 _SPARK_HINTS = ("spark", "DataFrame", "withColumn", "write", "read")
 
+# Columns the pipeline adds itself, so a reference to one is never an invention.
+_AUDIT_COLUMNS = {
+    "sourcefile", "ingestiontimestamp", "batchid", "processedtimestamp",
+    "refreshedtimestamp", "rownumber",
+}
+_DEDUP_CALLS = {"row_number", "dropDuplicates", "drop_duplicates"}
 
-def validate_python_code(code: str = None, artifact_path: str = None) -> dict:
+
+def _norm(name) -> str:
+    """Compare column names ignoring case and underscores (CustomerID == customer_id)."""
+    return re.sub(r"[^a-z0-9]", "", str(name).lower())
+
+
+def _catalog_column_names() -> set:
+    try:
+        catalog = _load_catalog()
+    except (FileNotFoundError, ValueError):
+        return set()
+    return {
+        _norm(column["name"])
+        for table in catalog.get("tables", [])
+        for column in table.get("columns", [])
+    }
+
+
+def _dotted(node) -> str:
+    """Render `a.b.c` for a Name/Attribute chain, or '' for anything else."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return ""
+
+
+def _call_name(node: ast.Call) -> str:
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    return ""
+
+
+def _const_str(node) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _write_has_mode(call: ast.Call) -> bool:
+    """True if a `.save...()` call has `.mode(...)` somewhere earlier in its chain."""
+    node = call.func
+    while isinstance(node, (ast.Attribute, ast.Call)):
+        if isinstance(node, ast.Call):
+            if _call_name(node) == "mode":
+                return True
+            node = node.func
+        else:
+            node = node.value
+    return False
+
+
+def _lint_pyspark(tree, code: str, layer=None, mapping_columns=()) -> tuple[list, list]:
+    """Spark-semantics lint. Returns (errors, warnings).
+
+    `ast.parse` only proves the file is Python. The first real run produced
+    modules that parsed cleanly and still could not run: a pandas-style
+    `DataFrame.merge`, a table name passed to `.load()`, a two-argument
+    `dbutils.widgets.get`, and an L3 job that appended on re-run. Every check
+    below corresponds to something the model actually wrote.
+    """
+    errors, warnings = [], []
+    uses_delta = any(
+        (isinstance(n, ast.Name) and n.id == "DeltaTable")
+        or (isinstance(n, ast.alias) and n.name == "DeltaTable")
+        for n in ast.walk(tree)
+    )
+    allowed = (
+        _catalog_column_names() | _AUDIT_COLUMNS | {_norm(c) for c in mapping_columns}
+    )
+    unknown_columns, modes, seen = [], set(), set()
+
+    def flag(message: str, bucket: list = errors) -> None:
+        if message not in seen:
+            seen.add(message)
+            bucket.append(message)
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _call_name(node)
+        first = _const_str(node.args[0]) if node.args else None
+
+        if _dotted(node.func) == "dbutils.widgets.get" and (
+            len(node.args) + len(node.keywords) != 1
+        ):
+            flag("dbutils.widgets.get takes exactly one argument (the widget "
+                 "name); it has no default-value parameter.")
+        elif name == "load" and first and re.fullmatch(r"\w+\.\w+\.\w+", first):
+            flag(f"load('{first}') passes a table name to a path reader; use "
+                 "spark.table(...) for Unity Catalog tables.")
+        elif name == "merge" and not uses_delta:
+            flag("DataFrame.merge does not exist in Spark (that is pandas); "
+                 "use DeltaTable.merge or MERGE INTO.")
+        elif (
+            name == "withColumn" and len(node.args) == 2
+            and _const_str(node.args[1]) is not None
+        ):
+            flag("withColumn needs a Column as its second argument; wrap a "
+                 "literal with F.lit(...).")
+        elif name == "select":
+            literals = [_const_str(arg) for arg in node.args]
+            literals = [value for value in literals if value is not None]
+            if len(literals) != len(set(literals)):
+                flag("select() lists the same column more than once, which "
+                     "makes later references ambiguous.")
+        elif name == "mode" and first:
+            modes.add(first.lower())
+        elif name in ("saveAsTable", "save") and not _write_has_mode(node):
+            flag("A write has no explicit mode(); the default fails on the "
+                 "second run.", warnings)
+        elif name == "col" and first and allowed:
+            column = first.split(".")[-1]
+            if _norm(column) not in allowed:
+                unknown_columns.append(first)
+
+    if unknown_columns:
+        flag("References column(s) that are in neither the source catalog nor "
+             f"the mapping: {sorted(set(unknown_columns))}.")
+
+    defined = {
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    guarded = any(
+        isinstance(node, ast.If) and "__name__" in ast.dump(node.test)
+        for node in tree.body
+    )
+    runs_on_import = any(
+        isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+        and _call_name(node.value) in defined
+        for node in tree.body
+    )
+    if runs_on_import and not guarded:
+        flag("The job runs on import; guard the entry point with "
+             "`if __name__ == '__main__':` so it can be tested.", warnings)
+
+    if layer == "L1" and "append" not in modes:
+        flag("L1 must append (mode('append')); bronze keeps every landed batch.")
+    if layer == "L2" and not (
+        any(_call_name(n) in _DEDUP_CALLS for n in ast.walk(tree) if isinstance(n, ast.Call))
+        or "MERGE INTO" in code.upper()
+        or (uses_delta and any(
+            _call_name(n) == "merge" for n in ast.walk(tree) if isinstance(n, ast.Call)
+        ))
+    ):
+        flag("L2 must deduplicate on the business key and merge into silver; "
+             "neither a dedup nor a MERGE was found.")
+    if layer == "L3" and "append" in modes:
+        flag("L3 must overwrite; appending to gold double counts on a re-run.")
+
+    return errors, warnings
+
+
+def validate_python_code(
+    code: str = None,
+    artifact_path: str = None,
+    layer: str = None,
+    mapping_columns=None,
+) -> dict:
     """Parse generated Python and report syntax errors plus lint findings.
 
     Pass either the code itself or the path of an artifact already written.
-    Returns `{"valid": bool, "errors": [...], "warnings": [...]}`.
+    `layer` (L1/L2/L3) switches on that layer's contract: bronze must append,
+    silver must deduplicate and merge, gold must overwrite. `mapping_columns`
+    is the list of target columns the mapping declares, used to spot invented
+    column names. Returns `{"valid": bool, "errors": [...], "warnings": [...]}`.
     """
     if code is None and artifact_path is None:
         raise ValueError("Provide either 'code' or 'artifact_path'.")
@@ -276,6 +467,12 @@ def validate_python_code(code: str = None, artifact_path: str = None) -> dict:
     for pattern, reason in _FORBIDDEN_PATTERNS:
         if pattern in code:
             errors.append(f"Forbidden construct '{pattern}': {reason}")
+
+    lint_errors, lint_warnings = _lint_pyspark(
+        tree, code, layer=layer, mapping_columns=mapping_columns or ()
+    )
+    errors.extend(lint_errors)
+    warnings.extend(lint_warnings)
 
     if not any(hint in code for hint in _SPARK_HINTS):
         warnings.append("No Spark DataFrame usage detected; is this a real job?")
@@ -352,7 +549,7 @@ def run_data_quality_checks(dataset: str, rules) -> dict:
 
 def _coerce_rules(rules):
     if isinstance(rules, str):
-        rules = json.loads(rules)
+        rules = _loads_tolerant(rules)
     if isinstance(rules, dict):
         rules = rules.get("rules", [])
     return list(rules or [])
@@ -454,7 +651,10 @@ def run_pytest(target_path: str, extra_args: str = "-q") -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Test target not found: {target_path}")
 
-    command = [sys.executable, "-m", "pytest", str(path)]
+    # `-o addopts=` neutralises this project's pytest.ini. Without it, a target
+    # inside the project picks up `-q` from the ini and the `-q` below makes
+    # `-qq`, which suppresses the "N passed" summary line entirely.
+    command = [sys.executable, "-m", "pytest", str(path), "-o", "addopts="]
     command += [arg for arg in str(extra_args).split() if arg]
 
     logger.info("Running pytest: %s", " ".join(command))
@@ -465,6 +665,8 @@ def run_pytest(target_path: str, extra_args: str = "-q") -> dict:
             capture_output=True,
             text=True,
             timeout=300,
+            # Keep __pycache__ out of the run folder.
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         stdout, stderr, code = completed.stdout, completed.stderr, completed.returncode
     except subprocess.TimeoutExpired:
@@ -511,14 +713,14 @@ def batch_tool(invocations) -> list:
     Each invocation is `{"name": <tool>, "arguments": <JSON string or dict>}`.
     """
     if isinstance(invocations, str):
-        invocations = json.loads(invocations)
+        invocations = _loads_tolerant(invocations)
     results = []
     for invocation in invocations or []:
         name = invocation.get("name")
         arguments = invocation.get("arguments", {})
         if isinstance(arguments, str):
             try:
-                arguments = json.loads(arguments) if arguments.strip() else {}
+                arguments = _loads_tolerant(arguments) if arguments.strip() else {}
             except json.JSONDecodeError as exc:
                 results.append({"name": name, "error": f"Bad arguments JSON: {exc}"})
                 continue
@@ -716,11 +918,15 @@ validate_python_code_schema = {
     "function": {
         "name": "validate_python_code",
         "description": (
-            "Parses generated Python with the AST module and reports syntax "
-            "errors, forbidden constructs (shell escapes, eval/exec, inline "
-            "secret reads), missing Spark usage and missing docstrings. Call "
-            "it on every generated pipeline file before declaring it done, "
-            "and fix anything it reports."
+            "Checks generated Python and reports syntax errors, forbidden "
+            "constructs (shell escapes, eval/exec, inline secret reads), "
+            "Spark mistakes that parse but cannot run (DataFrame.merge, a "
+            "table name passed to load(), a two-argument "
+            "dbutils.widgets.get, duplicate select columns, invented column "
+            "names) and, when a layer is given, that layer's contract: L1 "
+            "appends, L2 deduplicates and merges, L3 overwrites. Call it on "
+            "every generated pipeline file before declaring it done, and fix "
+            "anything it reports."
         ),
         "parameters": {
             "type": "object",
@@ -728,6 +934,13 @@ validate_python_code_schema = {
                 "code": {
                     "type": "string",
                     "description": "The Python source to validate.",
+                },
+                "layer": {
+                    "type": "string",
+                    "description": (
+                        "Medallion layer the module implements: 'L1', 'L2' "
+                        "or 'L3'. Enables that layer's load-strategy checks."
+                    ),
                 },
                 "artifact_path": {
                     "type": "string",
@@ -911,7 +1124,7 @@ def run_tools(message) -> list:
         raw_arguments = func["arguments"] if isinstance(func, dict) else func.arguments
         if isinstance(raw_arguments, str):
             try:
-                tool_input = json.loads(raw_arguments) if raw_arguments.strip() else {}
+                tool_input = _loads_tolerant(raw_arguments) if raw_arguments.strip() else {}
             except json.JSONDecodeError:
                 tool_input = {}
         else:

@@ -588,14 +588,35 @@ def _rule(index, dataset, column, check, params, severity, dimension, descriptio
 # --------------------------------------------------------------------------
 # Stage 5: tests
 # --------------------------------------------------------------------------
+def _resolve_test_key(keys: list, columns: list, expected: list) -> str:
+    """Name the business key as it appears in the TARGET columns.
+
+    A mapping's `business_key` may use the source spelling (`CustomerID`)
+    while the target column is snake_cased (`customer_id`). Tests build rows
+    from the target columns, so using the source spelling raised
+    `KeyError: 'CustomerID'` in six generated tests in the first real run.
+    """
+    for key in keys:
+        if key in expected:
+            return key
+        for column in columns:
+            if column.get("source_column") == key and column.get("target_column") in expected:
+                return column["target_column"]
+        if snake(key) in expected:
+            return snake(key)
+    return expected[0] if expected else "id"
+
+
 def fallback_tests(layer: str, mapping: dict) -> str:
     """Render a complete pytest module that pins the mapping's rules."""
     target = mapping.get("target_object", "unknown.table")
     entity = target.split(".")[-1]
-    keys = mapping.get("business_key") or ["id"]
-    key = keys[0]
     columns = mapping.get("columns", [])
-    expected = [column.get("target_column") for column in columns if column.get("target_column")]
+    # De-duplicate: a model-authored mapping can list a target column twice.
+    expected = list(dict.fromkeys(
+        column["target_column"] for column in columns if column.get("target_column")
+    ))
+    key = _resolve_test_key(mapping.get("business_key") or [], columns, expected)
     expected_literal = json.dumps(expected, indent=4)
 
     string_columns = [
@@ -659,7 +680,7 @@ def test_every_mapped_column_is_produced():
 
 
 def test_business_key_is_in_the_output():
-    assert BUSINESS_KEY in EXPECTED_COLUMNS or EXPECTED_COLUMNS
+    assert BUSINESS_KEY in EXPECTED_COLUMNS
 
 
 def test_empty_input_produces_empty_output():

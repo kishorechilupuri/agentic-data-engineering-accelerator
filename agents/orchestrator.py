@@ -44,7 +44,9 @@ class Orchestrator(BaseAgent):
     key = "orchestrator"
     prompt_name = "orchestrator"
     description = "Runs the end-to-end data engineering SDLC."
-    tool_names = ("get_current_datetime",)
+    # No tools. Offered get_current_datetime, the model answered the summary
+    # request with a fabricated tool call (`get_run_summary`) as plain text.
+    tool_names = ()
 
     def __init__(self, llm, run_id: str, run_dir=None, tables=None):
         super().__init__(llm, run_dir=run_dir)
@@ -291,7 +293,17 @@ class Orchestrator(BaseAgent):
         except Exception as exc:
             self.logger.warning("Summary generation failed: %s", exc)
             return _deterministic_summary(manifest)
-        return (text or "").strip() or _deterministic_summary(manifest)
+
+        text = (text or "").strip()
+        # The prompt asks for prose. A reply that is JSON, or that is empty, is
+        # not a summary a human can read, so say what happened ourselves.
+        if not text or text[0] in "{[" or '"parameters"' in text:
+            self.logger.warning(
+                "Summary was not prose (%r); using the deterministic summary.",
+                text[:60],
+            )
+            return _deterministic_summary(manifest)
+        return text
 
 
 def _deterministic_summary(manifest: dict) -> str:
