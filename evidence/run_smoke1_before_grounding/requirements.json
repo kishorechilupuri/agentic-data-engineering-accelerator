@@ -1,0 +1,62 @@
+{
+  "epic": "Sales Order Count and Total",
+  "summary": "Build a curated gold table giving each customer their order count and total order amount, sourced from the SQL Server sales tables ADF lands in ADLS Gen2.",
+  "source_tables": [
+    "Sales.Customer",
+    "Sales.Order",
+    "Sales.OrderItem"
+  ],
+  "target_entities": [
+    {
+      "layer": "L3",
+      "name": "customer_orders",
+      "grain": "one row per customer"
+    }
+  ],
+  "functional_requirements": [
+    {
+      "id": "FR-001",
+      "statement": "Extract customer IDs and order IDs from the source tables.",
+      "layer": "L1",
+      "acceptance_criteria": [
+        "The pipeline extracts all customer IDs from the Sales.Customer table.",
+        "The pipeline extracts all order IDs from the Sales.Order table."
+      ]
+    },
+    {
+      "id": "FR-002",
+      "statement": "Count the number of orders for each customer.",
+      "layer": "L2",
+      "acceptance_criteria": [
+        "The pipeline counts the number of orders for each customer.",
+        "The pipeline stores the count in the customer_orders table."
+      ]
+    },
+    {
+      "id": "FR-003",
+      "statement": "Calculate the total order amount for each customer.",
+      "layer": "L3",
+      "acceptance_criteria": [
+        "The pipeline calculates the total order amount for each customer.",
+        "The pipeline stores the total in the customer_orders table."
+      ]
+    }
+  ],
+  "non_functional_requirements": [
+    {
+      "id": "NFR-001",
+      "statement": "The pipeline must complete within 2 hours."
+    }
+  ],
+  "assumptions": [
+    "The Sales.Customer table has a column named 'CustomerID'.",
+    "The Sales.Order table has a column named 'OrderID'.",
+    "The Sales.OrderItem table has a column named 'OrderID'.",
+    "The pipeline will use the current date as the effective date for the orders."
+  ],
+  "open_questions": [
+    "How should orders with missing or invalid dates be handled?",
+    "What is the expected format for the total order amount?"
+  ],
+  "_original_request": "Build a curated gold table giving each customer their order count and total order amount, sourced from the SQL Server sales tables ADF lands in ADLS Gen2."
+}

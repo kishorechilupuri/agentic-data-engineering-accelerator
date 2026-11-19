@@ -1,0 +1,42 @@
+{
+  "pipelines/l1_customer.py": {
+    "valid": true,
+    "errors": [],
+    "warnings": [
+      "Generated module has no docstring."
+    ],
+    "functions": [
+      "build_customer_l1",
+      "load"
+    ],
+    "line_count": 55
+  },
+  "pipelines/l2_customer.py": {
+    "valid": true,
+    "errors": [],
+    "warnings": [
+      "Generated module has no docstring."
+    ],
+    "functions": [
+      "build_customer_l2",
+      "load"
+    ],
+    "line_count": 59
+  },
+  "pipelines/l3_customer_orders.py": {
+    "valid": true,
+    "errors": [],
+    "warnings": [
+      "Generated module has no docstring."
+    ],
+    "functions": [
+      "build_customer_orders_layer",
+      "load",
+      "main",
+      "add_audit_columns",
+      "main_with_audit_columns",
+      "main_with_audit_columns_and_idempotence"
+    ],
+    "line_count": 116
+  }
+}

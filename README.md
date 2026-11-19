@@ -44,7 +44,7 @@ executed them.
 | **Requirement refinement** | Turns a one-line request into a specification with IDs, layer assignment and *checkable* acceptance criteria. Table names are validated against the catalog, so a hallucinated `Sales.Order` is discarded, not propagated. |
 | **Source-to-target mapping** | Produces the L1/L2/L3 mapping as both JSON (machine) and CSV (the format engineers review in). Grounded in the declared schema *and* a profile of the file ADF actually landed. |
 | **Databricks code generation** | One PySpark module per layer: L1 appends with a batch guard, L2 merges on the business key after windowed dedup, L3 joins and aggregates. Pure transform functions are kept separate from I/O so they are testable without a cluster. |
-| **Static code gates** | Every generated module is AST-parsed and screened for shell escapes, `eval`/`exec`, inline secret reads, missing Spark usage and missing docstrings — before a human sees it. |
+| **Static code gates** | Every generated module is parsed, screened for shell escapes and inline secrets, linted for Spark mistakes that parse but cannot run (`DataFrame.merge`, a table name passed to `load()`, invented columns), and held to its layer's contract: L1 appends, L2 deduplicates and merges, L3 overwrites. These are AST heuristics, not execution — see [EVIDENCE.md](EVIDENCE.md) for what an AST-only gate let through. |
 | **Data quality** | Eight check types across six DQ dimensions, executed for real against the landed CSVs. `error` severity blocks promotion; `warn` is logged. |
 | **Test generation + execution** | A pytest suite per layer that pins the mapping's rules, then actually runs pytest and reports the exit code. A generated test that does not execute is not a test. |
 | **Code review** | A structured verdict with severity-ranked findings, merged with the static validation results so the review cannot approve around a module that failed to parse. |
@@ -265,7 +265,8 @@ Agentic Data Engineering Accelerator/
 │   ├── source_catalog.json     synthetic SQL Server metadata (3 tables)
 │   └── landing/*.csv           simulated ADLS Gen2 extracts, defects included
 │
-├── tests/                      the accelerator's own suite (239 tests)
+├── tests/                      the accelerator's own suite (293 tests)
+├── evidence/                   the recorded real run against llama3.1:8b
 ├── logs/                       run_<date>_<time>.log + .events.jsonl
 ├── output/run_<id>/            all artifacts for one run
 │
@@ -316,7 +317,7 @@ python main.py --describe
 ### Verify
 
 ```bash
-python -m pytest                 # 239 tests, no Ollama or Spark required
+python -m pytest                 # 293 tests, no Ollama or Spark required
 ```
 
 ### Where the output goes
@@ -361,13 +362,15 @@ logs/run_<id>.events.jsonl   one JSON object per LLM call, tool call and stage
 
 ## 9. Limitations
 
-1. **Local 8B inference is slow.** Measured on CPU, a `deep`-tier call takes
-   around 12 minutes and a `balanced`-tier call around 4. Cost scales with the
-   number of source tables: each one adds two mapping objects, two pipeline
-   modules and two test suites, so the whole three-table catalog is a
-   multi-hour run while `--tables Sales.Customer` is well under an hour. Use
-   `--tables` to bound a local run. The tier routing exists precisely so this
-   workload can move to hosted models without touching the agents.
+1. **Local 8B inference is slow.** Measured on CPU in the recorded run:
+   16 calls from 65 s to 780 s, mean 5.9 minutes, 95 minutes end to end for a
+   single table. Latency tracks output length, not tier, since every tier is
+   the same local model, and the same step varied by about a third between
+   runs. Cost scales with the number of source tables: each one adds two
+   mapping objects, two pipeline modules and two test suites, so the
+   three-table catalog is a multi-hour run. Use `--tables` to bound a local
+   run. The tier routing exists precisely so this workload can move to hosted
+   models without touching the agents.
 2. **8B output quality is the binding constraint.** It hallucinated table
    names on the very first run. `agents/grounding.py` and the fallbacks in
    `agents/fallbacks.py` exist because of that, and the `degraded` status is a

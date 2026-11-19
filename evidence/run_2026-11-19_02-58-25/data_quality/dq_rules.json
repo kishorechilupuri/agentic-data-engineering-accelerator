@@ -1,0 +1,79 @@
+{
+  "rules": [
+    {
+      "rule_id": "DQ-001",
+      "dataset": "customer",
+      "layer": "L1",
+      "column": "CustomerID",
+      "check": "not_null",
+      "params": {},
+      "severity": "error",
+      "dimension": "completeness",
+      "description": "Business key must always be present."
+    },
+    {
+      "rule_id": "DQ-002",
+      "dataset": "customer",
+      "layer": "L1",
+      "column": "CustomerID",
+      "check": "unique",
+      "params": {},
+      "severity": "error",
+      "dimension": "uniqueness",
+      "description": "Business key must be unique in the landed batch."
+    },
+    {
+      "rule_id": "DQ-003",
+      "dataset": "customer",
+      "layer": "L1",
+      "column": "CustomerID",
+      "check": "row_count_min",
+      "params": {
+        "min": 1
+      },
+      "severity": "error",
+      "dimension": "volume",
+      "description": "An empty delivery must fail loudly."
+    },
+    {
+      "rule_id": "DQ-004",
+      "dataset": "customer",
+      "layer": "L1",
+      "column": "Email",
+      "check": "regex",
+      "params": {
+        "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+      },
+      "severity": "warn",
+      "dimension": "validity",
+      "description": "Email should be a plausible address."
+    },
+    {
+      "rule_id": "DQ-005",
+      "dataset": "customer",
+      "layer": "L1",
+      "column": "CreatedDate",
+      "check": "date_format",
+      "params": {
+        "format": "%Y-%m-%d %H:%M:%S"
+      },
+      "severity": "warn",
+      "dimension": "validity",
+      "description": "CreatedDate must parse as %Y-%m-%d %H:%M:%S."
+    },
+    {
+      "rule_id": "DQ-006",
+      "dataset": "customer",
+      "layer": "L1",
+      "column": "ModifiedDate",
+      "check": "date_format",
+      "params": {
+        "format": "%Y-%m-%d %H:%M:%S"
+      },
+      "severity": "warn",
+      "dimension": "validity",
+      "description": "ModifiedDate must parse as %Y-%m-%d %H:%M:%S."
+    }
+  ],
+  "dataset_count": 1
+}

@@ -1,0 +1,37 @@
+mapping_id,layer,source_object,target_object,load_strategy,business_key,source_column,target_column,target_type,transformation,nullable
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,CustomerID,customer_id,string,cast,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,FirstName,first_name,string,direct,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,LastName,last_name,string,direct,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,Email,email,string,direct,True
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,Phone,phone,string,direct,True
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,City,city,string,direct,True
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,StateProvince,state_province,string,direct,True
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,CountryCode,country_code,string,cast,True
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,CreatedDate,created_date,timestamp,direct,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,ModifiedDate,modified_date,timestamp,direct,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,source_file,source_file,string,direct,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,ingestion_timestamp,ingestion_timestamp,timestamp,direct,False
+MAP-L1-CUSTOMER,L1,abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/,dea_accelerator.bronze.customer,append,CustomerID,batch_id,batch_id,string,direct,False
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,customer_id,customer_id,int,cast,False
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,first_name,first_name,string,trim,False
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,last_name,last_name,string,trim,False
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,email,email,string,lower,True
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,phone,phone,string,direct,True
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,city,city,string,trim,True
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,state_province,state_province,string,trim,True
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,country_code,country_code,string,direct,True
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,created_date,created_date,timestamp,direct,False
+MAP-L2-CUSTOMER,L2,dea_accelerator.bronze.customer,dea_accelerator.silver.customer,merge on key,customer_id,modified_date,modified_date,timestamp,direct,False
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,CustomerID,customer_id,int,direct,False
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,CustomerID,customer_id,int,cast,False
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,FirstName,first_name,string,trim,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,LastName,last_name,string,trim,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,Email,email,string,lower,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,Phone,phone,string,trim,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,City,city,string,trim,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,StateProvince,state_province,string,trim,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,CountryCode,country_code,string,trim,True
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,CreatedDate,created_date,date,direct,False
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,ModifiedDate,modified_date,date,direct,False
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,COUNT(*),order_count,int,sum,False
+MAP-L3-CUSTOMER_ORDERS,L3,dea_accelerator.silver.customer,dea_accelerator.gold.customer_orders,overwrite,CustomerID,SUM(SalesAmount),total_order_amount,"decimal(18,2)",sum,False

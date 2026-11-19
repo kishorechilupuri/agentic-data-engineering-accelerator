@@ -1,0 +1,310 @@
+{
+  "mappings": [
+    {
+      "mapping_id": "MAP-L1-CUSTOMER",
+      "layer": "L1",
+      "source_object": "abfss://landing@adlsdeaccel.dfs.core.windows.net/sqlserver/sales/customer/",
+      "target_object": "dea_accelerator.bronze.customer",
+      "business_key": [
+        "CustomerID"
+      ],
+      "load_strategy": "append",
+      "columns": [
+        {
+          "source_column": "CustomerID",
+          "target_column": "customer_id",
+          "target_type": "string",
+          "transformation": "cast",
+          "nullable": false,
+          "notes": "Cast to string to match L1 requirements"
+        },
+        {
+          "source_column": "FirstName",
+          "target_column": "first_name",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "LastName",
+          "target_column": "last_name",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "Email",
+          "target_column": "email",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": true
+        },
+        {
+          "source_column": "Phone",
+          "target_column": "phone",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": true
+        },
+        {
+          "source_column": "City",
+          "target_column": "city",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": true
+        },
+        {
+          "source_column": "StateProvince",
+          "target_column": "state_province",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": true
+        },
+        {
+          "source_column": "CountryCode",
+          "target_column": "country_code",
+          "target_type": "string",
+          "transformation": "cast",
+          "nullable": true,
+          "notes": "Cast to string to match L1 requirements"
+        },
+        {
+          "source_column": "CreatedDate",
+          "target_column": "created_date",
+          "target_type": "timestamp",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "ModifiedDate",
+          "target_column": "modified_date",
+          "target_type": "timestamp",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "source_file",
+          "target_column": "source_file",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "ingestion_timestamp",
+          "target_column": "ingestion_timestamp",
+          "target_type": "timestamp",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "batch_id",
+          "target_column": "batch_id",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": false
+        }
+      ],
+      "notes": "L1 mapping for Sales.Customer table"
+    },
+    {
+      "mapping_id": "MAP-L2-CUSTOMER",
+      "layer": "L2",
+      "source_object": "dea_accelerator.bronze.customer",
+      "target_object": "dea_accelerator.silver.customer",
+      "business_key": [
+        "customer_id"
+      ],
+      "load_strategy": "merge on key",
+      "columns": [
+        {
+          "source_column": "customer_id",
+          "target_column": "customer_id",
+          "target_type": "int",
+          "transformation": "cast",
+          "nullable": false
+        },
+        {
+          "source_column": "first_name",
+          "target_column": "first_name",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": false
+        },
+        {
+          "source_column": "last_name",
+          "target_column": "last_name",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": false
+        },
+        {
+          "source_column": "email",
+          "target_column": "email",
+          "target_type": "string",
+          "transformation": "lower",
+          "nullable": true
+        },
+        {
+          "source_column": "phone",
+          "target_column": "phone",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": true
+        },
+        {
+          "source_column": "city",
+          "target_column": "city",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true
+        },
+        {
+          "source_column": "state_province",
+          "target_column": "state_province",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true
+        },
+        {
+          "source_column": "country_code",
+          "target_column": "country_code",
+          "target_type": "string",
+          "transformation": "direct",
+          "nullable": true
+        },
+        {
+          "source_column": "created_date",
+          "target_column": "created_date",
+          "target_type": "timestamp",
+          "transformation": "direct",
+          "nullable": false
+        },
+        {
+          "source_column": "modified_date",
+          "target_column": "modified_date",
+          "target_type": "timestamp",
+          "transformation": "direct",
+          "nullable": false
+        }
+      ],
+      "notes": "L2 mapping for Sales.Customer table"
+    },
+    {
+      "mapping_id": "MAP-L3-CUSTOMER_ORDERS",
+      "layer": "L3",
+      "source_object": "dea_accelerator.silver.customer",
+      "target_object": "dea_accelerator.gold.customer_orders",
+      "business_key": [
+        "CustomerID"
+      ],
+      "load_strategy": "overwrite",
+      "columns": [
+        {
+          "source_column": "CustomerID",
+          "target_column": "customer_id",
+          "target_type": "int",
+          "transformation": "direct",
+          "nullable": false,
+          "notes": ""
+        },
+        {
+          "source_column": "CustomerID",
+          "target_column": "customer_id",
+          "target_type": "int",
+          "transformation": "cast",
+          "nullable": false,
+          "notes": ""
+        },
+        {
+          "source_column": "FirstName",
+          "target_column": "first_name",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "LastName",
+          "target_column": "last_name",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "Email",
+          "target_column": "email",
+          "target_type": "string",
+          "transformation": "lower",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "Phone",
+          "target_column": "phone",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "City",
+          "target_column": "city",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "StateProvince",
+          "target_column": "state_province",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "CountryCode",
+          "target_column": "country_code",
+          "target_type": "string",
+          "transformation": "trim",
+          "nullable": true,
+          "notes": ""
+        },
+        {
+          "source_column": "CreatedDate",
+          "target_column": "created_date",
+          "target_type": "date",
+          "transformation": "direct",
+          "nullable": false,
+          "notes": ""
+        },
+        {
+          "source_column": "ModifiedDate",
+          "target_column": "modified_date",
+          "target_type": "date",
+          "transformation": "direct",
+          "nullable": false,
+          "notes": ""
+        },
+        {
+          "source_column": "COUNT(*)",
+          "target_column": "order_count",
+          "target_type": "int",
+          "transformation": "sum",
+          "nullable": false,
+          "notes": ""
+        },
+        {
+          "source_column": "SUM(SalesAmount)",
+          "target_column": "total_order_amount",
+          "target_type": "decimal(18,2)",
+          "transformation": "sum",
+          "nullable": false,
+          "notes": ""
+        }
+      ],
+      "notes": ""
+    }
+  ]
+}

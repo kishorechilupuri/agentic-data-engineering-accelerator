@@ -47,8 +47,13 @@ the manual process.
 
 ### D4 — Every generative stage has a verifying tool
 
-Generated code → `validate_python_code` (AST parse + forbidden-construct
-scan). Authored DQ rules → `run_data_quality_checks` against the real landed
+*Revised after the first full run: a verifying tool is only as good as what it
+checks. The original code gate was `ast.parse` plus a forbidden-construct scan,
+and it approved three modules that could not run. It now also lints Spark
+semantics and enforces each layer's load contract. See EVIDENCE.md.*
+
+Generated code → `validate_python_code` (AST parse, Spark-semantics lint,
+layer contract, forbidden-construct scan). Authored DQ rules → `run_data_quality_checks` against the real landed
 CSVs. Generated tests → `run_pytest`, exit code recorded. The review merges
 static findings so it cannot approve around a module that failed to parse.
 Nothing is accepted on the model's word.
@@ -135,7 +140,7 @@ Spark session and is listed below as future work.
 
 ### Phase 5 — Test suite ✅
 
-- [x] 239 tests, offline, no Spark
+- [x] 293 tests, offline, no Spark (246 at the time of the first full run)
 - [x] Config and routing, tools, prompts, fallbacks, grounding, agents,
       logging and client, orchestrator end-to-end
 
@@ -145,7 +150,22 @@ Spark session and is listed below as future work.
 - [x] Mapping agent split into bounded per-table requests (D7)
 - [x] Hallucinated-table test pinned to the exact observed failure
 
-### Phase 7 — Documentation and evidence ✅
+### Phase 7 — First full run and what it exposed ✅
+
+- [x] Ran all six stages against `llama3.1:8b`, scoped to `Sales.Customer`
+      (95 min, `completed_with_degradation`)
+- [x] Recorded the run in `evidence/`, paths sanitised
+- [x] Fixed D1–D7: code gate too weak, generated tests failing, DQ tool crash on
+      regex escapes, junk run summary, missing pytest summary line, absolute
+      paths in review output
+- [x] Regression tests pinned to the real model output (293 total)
+- [ ] **Open:** O1 mapping not validated against the catalog; O2 the chosen
+      scope made the requirement unsatisfiable; O3 requirement coverage not
+      validated; O4 review quality limited by the model
+- [ ] A second full run to confirm the fixes change the outcome. The fixes were
+      verified offline against recorded output only.
+
+### Phase 8 — Documentation and evidence ✅
 
 - [x] `README.md`, `CLAUDE.md`, `PLAN.md`
 - [x] `skills/` — four reusable domain playbooks

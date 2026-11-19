@@ -1,0 +1,73 @@
+{
+  "customer": {
+    "dataset": "customer",
+    "row_count": 12,
+    "rules_evaluated": 6,
+    "passed": 4,
+    "failed": 2,
+    "error_severity_failures": 1,
+    "overall_status": "fail",
+    "results": [
+      {
+        "rule_id": "DQ-001",
+        "column": "CustomerID",
+        "check": "not_null",
+        "severity": "error",
+        "description": "Business key must always be present.",
+        "status": "pass",
+        "failed_count": 0,
+        "detail": "0 null/blank values."
+      },
+      {
+        "rule_id": "DQ-002",
+        "column": "CustomerID",
+        "check": "unique",
+        "severity": "error",
+        "description": "Business key must be unique in the landed batch.",
+        "status": "fail",
+        "failed_count": 1,
+        "detail": "1 duplicate values."
+      },
+      {
+        "rule_id": "DQ-003",
+        "column": "CustomerID",
+        "check": "row_count_min",
+        "severity": "error",
+        "description": "An empty delivery must fail loudly.",
+        "status": "pass",
+        "failed_count": 0,
+        "detail": "row_count=12, minimum=1."
+      },
+      {
+        "rule_id": "DQ-004",
+        "column": "Email",
+        "check": "regex",
+        "severity": "warn",
+        "description": "Email should be a plausible address.",
+        "status": "fail",
+        "failed_count": 1,
+        "detail": "1 values not matching '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$'."
+      },
+      {
+        "rule_id": "DQ-005",
+        "column": "CreatedDate",
+        "check": "date_format",
+        "severity": "warn",
+        "description": "CreatedDate must parse as %Y-%m-%d %H:%M:%S.",
+        "status": "pass",
+        "failed_count": 0,
+        "detail": "0 values not parseable as %Y-%m-%d %H:%M:%S."
+      },
+      {
+        "rule_id": "DQ-006",
+        "column": "ModifiedDate",
+        "check": "date_format",
+        "severity": "warn",
+        "description": "ModifiedDate must parse as %Y-%m-%d %H:%M:%S.",
+        "status": "pass",
+        "failed_count": 0,
+        "detail": "0 values not parseable as %Y-%m-%d %H:%M:%S."
+      }
+    ]
+  }
+}

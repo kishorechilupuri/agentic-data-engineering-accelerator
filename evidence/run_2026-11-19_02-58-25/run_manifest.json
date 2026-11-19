@@ -1,0 +1,183 @@
+{
+  "run_id": "evidence",
+  "run_date": "2026-11-19",
+  "run_time": "02:58:25",
+  "requirement": "Build a curated gold table giving each customer their order count and total order amount. It must be re-runnable, must not double count on a re-run, and must reject a batch whose business keys are not unique.",
+  "table_scope": [
+    "Sales.Customer"
+  ],
+  "provider": "ollama",
+  "model_routing": {
+    "requirements": {
+      "tier": "balanced",
+      "model": "llama3.1:8b"
+    },
+    "mapping": {
+      "tier": "deep",
+      "model": "llama3.1:8b"
+    },
+    "codegen": {
+      "tier": "deep",
+      "model": "llama3.1:8b"
+    },
+    "data_quality": {
+      "tier": "balanced",
+      "model": "llama3.1:8b"
+    },
+    "tests": {
+      "tier": "balanced",
+      "model": "llama3.1:8b"
+    },
+    "review": {
+      "tier": "deep",
+      "model": "llama3.1:8b"
+    }
+  },
+  "stages_requested": [
+    "requirements",
+    "mapping",
+    "codegen",
+    "data_quality",
+    "tests",
+    "review"
+  ],
+  "stages": {
+    "requirements": {
+      "agent": "requirement_refiner",
+      "status": "ok",
+      "artifacts": [
+        "requirements/requirements.json",
+        "requirements/requirements.md"
+      ],
+      "notes": [],
+      "turns": 1,
+      "tool_calls": []
+    },
+    "mapping": {
+      "agent": "sttm_mapper",
+      "status": "ok",
+      "artifacts": [
+        "mapping/source_to_target_mapping.json",
+        "mapping/source_to_target_mapping.csv"
+      ],
+      "notes": [],
+      "turns": 4,
+      "tool_calls": [
+        "get_table_schema",
+        "get_table_schema"
+      ]
+    },
+    "codegen": {
+      "agent": "pipeline_codegen",
+      "status": "ok",
+      "artifacts": [
+        "pipelines/l1_customer.py",
+        "pipelines/l2_customer.py",
+        "pipelines/l3_customer_orders.py",
+        "pipelines/validation_report.json"
+      ],
+      "notes": [],
+      "turns": 3,
+      "tool_calls": []
+    },
+    "data_quality": {
+      "agent": "data_quality",
+      "status": "degraded",
+      "artifacts": [
+        "data_quality/dq_rules.json",
+        "data_quality/dq_results.json",
+        "data_quality/dq_report.md"
+      ],
+      "notes": [
+        "Model reply contained no usable rules; catalog-derived fallback rules were used."
+      ],
+      "turns": 2,
+      "tool_calls": [
+        "profile_landing_dataset",
+        "run_data_quality_checks",
+        "run_data_quality_checks",
+        "run_data_quality_checks"
+      ]
+    },
+    "tests": {
+      "agent": "test_generator",
+      "status": "degraded",
+      "artifacts": [
+        "tests/test_l1_customer.py",
+        "tests/test_l2_customer.py",
+        "tests/test_l3_customer_orders.py",
+        "tests/pytest_report.json"
+      ],
+      "notes": [
+        "L1 test module could not be extracted from the model reply; a deterministic suite was rendered from the mapping.",
+        "L2 test module could not be extracted from the model reply; a deterministic suite was rendered from the mapping.",
+        "L3 test module was unusable (['SyntaxError line 1, offset 2725: unterminated string literal (detected at line 1)']); a deterministic suite was rendered from the mapping.",
+        "Generated test suite did not pass: no summary line"
+      ],
+      "turns": 3,
+      "tool_calls": []
+    },
+    "review": {
+      "agent": "code_reviewer",
+      "status": "ok",
+      "artifacts": [
+        "review/code_review.json",
+        "review/code_review.md"
+      ],
+      "notes": [
+        "3 finding(s) added from static validation."
+      ],
+      "turns": 2,
+      "tool_calls": [
+        "read_artifact",
+        "validate_python_code",
+        "read_artifact",
+        "validate_python_code",
+        "read_artifact",
+        "validate_python_code"
+      ]
+    }
+  },
+  "artifacts": [
+    "requirements/requirements.json",
+    "requirements/requirements.md",
+    "mapping/source_to_target_mapping.json",
+    "mapping/source_to_target_mapping.csv",
+    "pipelines/l1_customer.py",
+    "pipelines/l2_customer.py",
+    "pipelines/l3_customer_orders.py",
+    "pipelines/validation_report.json",
+    "data_quality/dq_rules.json",
+    "data_quality/dq_results.json",
+    "data_quality/dq_report.md",
+    "tests/test_l1_customer.py",
+    "tests/test_l2_customer.py",
+    "tests/test_l3_customer_orders.py",
+    "tests/pytest_report.json",
+    "review/code_review.json",
+    "review/code_review.md"
+  ],
+  "data_quality": {
+    "rules": 6,
+    "failed_rules": 2,
+    "blocking_failures": 1
+  },
+  "tests": {
+    "exit_code": 1,
+    "summary": "no summary line",
+    "passed": false
+  },
+  "review": {
+    "verdict": "request_changes",
+    "finding_count": 5
+  },
+  "llm_stats": {
+    "provider": "ollama",
+    "calls": 15,
+    "total_latency_seconds": 5600.65
+  },
+  "overall_status": "completed_with_degradation",
+  "elapsed_seconds": 5607.69,
+  "run_folder": "<project>\\output\\run_evidence",
+  "summary": "{\"name\": \"get_run_summary\", \"parameters\": {\"run_record\": \"the run record provided in the prompt\"}}"
+}

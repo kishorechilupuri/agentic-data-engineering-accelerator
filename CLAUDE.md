@@ -17,7 +17,7 @@ SQL Server → ADF → ADLS Gen2 → Databricks L1 (bronze) → L2 (silver) → 
 ## Commands
 
 ```bash
-python -m pytest                      # 239 tests; needs no Ollama, no Spark
+python -m pytest                      # 293 tests; needs no Ollama, no Spark
 python -m pytest tests/test_tools.py  # one module
 python -m pytest -k dq                # one concern
 
@@ -141,6 +141,20 @@ to match.
 - `extract_json` deliberately salvages JSON from prose, fences and trailing
   commas. Do not "simplify" it — each branch exists because an 8B model did
   that.
+- `run_pytest` passes `-o addopts=` to neutralise `pytest.ini`. Without it a
+  target inside the project gets `-q` twice (`-qq`), which suppresses the
+  "N passed" summary line and leaves the manifest saying `no summary line`.
+- Tool arguments that are JSON strings go through `tools._loads_tolerant`, not
+  `json.loads`. An 8B model writes regexes like `\s` with one backslash, which
+  strict JSON rejects; the first real run lost every DQ rule to it.
+- `evidence/` is the recorded real run, including generated tests that fail.
+  `pytest.ini` excludes it via `norecursedirs`. Do not "fix" the files in it:
+  `tests/test_real_run_regressions.py` reads the real model modules from there
+  and asserts the gate rejects them. If you re-run and want a new record, add a
+  new folder rather than overwriting.
+- The code gate (`validate_python_code`) is AST heuristics. A module passing it
+  is not a module that runs. Pass `layer=` and `mapping_columns=` so the layer
+  contract and the invented-column check apply.
 - Prompt instructions wrap across lines, so assert on whitespace-normalised
   text (`" ".join(body.split())`), not on raw substrings.
 
